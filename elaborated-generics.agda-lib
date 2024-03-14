@@ -1,7 +1,8 @@
-name: Embellishment
+name: elaborated-generics
 include: 
   src
 depend: 
+  standard-library
 
 flags:
   --auto-inline -v print:10 -v meta:10
