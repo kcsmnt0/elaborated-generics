@@ -1,9 +1,14 @@
 {-# OPTIONS --safe --without-K #-}
 
-open import Prelude
-
 module Generics.Algebra where
+
 open import Generics.Description
+open import Generics.Level
+
+open import Data.List using ([]; _∷_)
+open import Data.Product using (_×_; _,_)
+open import Data.Sum using (inj₁; inj₂)
+open import Data.Unit using (⊤; tt)
 
 private variable
   rb  : RecB
@@ -87,9 +92,9 @@ Allᶜ (σ A D) Y (a  , xs ) ℓ = Allᶜ (D a) Y xs ℓ
 Allᶜˢ : {I : Set ℓⁱ} (D : ConDs I cbs) {X : Carrierᶜˢ D ℓˣ} (Y : IndCarrierᶜˢ D X ℓʸ)
         {i : I} (xs : ⟦ D ⟧ᶜˢ X i) (ℓ : Level)
       → Set (maxMap max-π cbs ⊔ maxMap (hasRec? ℓʸ) cbs ⊔ ℓ)
-Allᶜˢ {cbs = _  ∷ cbs} {ℓʸ = ℓʸ} (D ∷ Ds) Y (inl xs) ℓ =
+Allᶜˢ {cbs = _  ∷ cbs} {ℓʸ = ℓʸ} (D ∷ Ds) Y (inj₁ xs) ℓ =
   Allᶜ  D  Y xs (ℓ ⊔ maxMap max-π cbs ⊔ maxMap (hasRec? ℓʸ) cbs)
-Allᶜˢ {cbs = cb ∷ _  } {ℓʸ = ℓʸ} (D ∷ Ds) Y (inr xs) ℓ =
+Allᶜˢ {cbs = cb ∷ _  } {ℓʸ = ℓʸ} (D ∷ Ds) Y (inj₂ xs) ℓ =
   Allᶜˢ Ds Y xs (ℓ ⊔ max-π cb ⊔ hasRec? ℓʸ cb)
 
 Allᵖᵈ : ∀ (D : PDataD) {ps} {X : Carrierᵖᵈ D ps ℓˣ} (Y : IndCarrierᵖᵈ D X ℓʸ)
@@ -133,8 +138,8 @@ ind-fmapᶜ (ρ D E) f (xs , xs') = ind-fmapʳ D f xs , ind-fmapᶜ E f xs'
 
 ind-fmapᶜˢ : {I : Set ℓⁱ} (D : ConDs I cbs) {X : Carrierᶜˢ D ℓˣ} {Y : IndCarrierᶜˢ D X ℓʸ}
            → (∀ {i} x → Y i x) → ∀ {i} (xs : ⟦ D ⟧ᶜˢ X i) → Allᶜˢ D Y xs ℓ
-ind-fmapᶜˢ (D ∷ Ds) f (inl xs) = ind-fmapᶜ  D  f xs
-ind-fmapᶜˢ (D ∷ Ds) f (inr xs) = ind-fmapᶜˢ Ds f xs
+ind-fmapᶜˢ (D ∷ Ds) f (inj₁ xs) = ind-fmapᶜ  D  f xs
+ind-fmapᶜˢ (D ∷ Ds) f (inj₂ xs) = ind-fmapᶜˢ Ds f xs
 
 ind-fmapᵖᵈ : ∀ (D : PDataD) {ps} {X : Carrierᵖᵈ D ps ℓˣ} {Y : IndCarrierᵖᵈ D X ℓʸ}
            → (∀ {is} x → Y is x) → ∀ {is} (xs : ⟦ D ⟧ᵖᵈ X is) → Allᵖᵈ D Y xs

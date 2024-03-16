@@ -1,5 +1,4 @@
 {-# OPTIONS --safe --without-K #-}
-open import Prelude
 
 module Utils.Reflection.Core where
 

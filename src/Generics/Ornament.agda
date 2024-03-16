@@ -1,13 +1,20 @@
 {-# OPTIONS --safe --with-K #-}
 
-open import Prelude
-
 module Generics.Ornament where
 
-open import Generics.Telescope
-open import Generics.Description
 open import Generics.Algebra
+open import Generics.Description
+open import Generics.Level
 open import Generics.Recursion
+open import Generics.Telescope
+
+open import Data.List using (_∷_)
+open import Data.Nat using (ℕ)
+open import Data.Product using (_,_)
+open import Data.Sum using (inj₁; inj₂)
+open import Function using (id; _∘_)
+open import Reflection.AST.Name using (Name)
+open import Relation.Binary.PropositionalEquality using (_≡_; sym; trans; cong; subst)
 
 private variable
   A : Set ℓ
@@ -66,9 +73,9 @@ module _ {I : Set ℓⁱ} {J : Set ℓʲ} {e : I → J} where
 
   eraseᶜˢ : {Ds : ConDs I cbs} {Es : ConDs J cbs'} (Os : ConOs e Ds Es)
             {X : J → Set ℓˣ} {i : I} → ⟦ Ds ⟧ᶜˢ (X ∘ e) i → ⟦ Es ⟧ᶜˢ X (e i)
-  eraseᶜˢ (O ∷ Os) (inl xs) = inl (eraseᶜ  O  xs)
-  eraseᶜˢ (O ∷ Os) (inr xs) =      eraseᶜˢ Os xs
-  eraseᶜˢ (  ∺ Os)      xs  = inr (eraseᶜˢ Os xs)
+  eraseᶜˢ (O ∷ Os) (inj₁ xs) = inj₁ (eraseᶜ  O  xs)
+  eraseᶜˢ (O ∷ Os) (inj₂ xs) =      eraseᶜˢ Os xs
+  eraseᶜˢ (  ∺ Os)      xs  = inj₂ (eraseᶜˢ Os xs)
 
 record PDataO (D E : PDataD) : Setω where
   field

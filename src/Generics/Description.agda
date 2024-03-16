@@ -1,12 +1,20 @@
 {-# OPTIONS --safe --without-K #-}
 
-open import Prelude
-
 module Generics.Description where
-open import Prelude.List as List
-open import Prelude.Sum  as Sum
 
+open import Generics.Level
 open import Generics.Telescope
+
+open import Data.Empty using (⊥)
+open import Data.List as List using (List; []; _∷_)
+open import Data.List.Relation.Unary.All using (All)
+open import Data.Nat using (ℕ)
+open import Data.Product using (Σ; _,_)
+open import Data.Sum as Sum using (_⊎_; inj₁; inj₂)
+open import Data.Unit using (⊤)
+open import Function using (const; _∘_)
+import Function.Nary.NonDependent as Nary
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; cong₂; module ≡-Reasoning)
 
 RecB : Set
 RecB = List Level
@@ -18,22 +26,22 @@ ConBs : Set
 ConBs = List ConB
 
 max-ℓ : List Level → Level
-max-ℓ = foldr lzero _⊔_
+max-ℓ = List.foldr _⊔_ lzero
 
 maxMap : {A : Set} → (A → Level) → List A → Level
 maxMap f = max-ℓ ∘ List.map f
 
 ρ-level : Level ⊎ RecB → Level
-ρ-level (inl _ ) = lzero
-ρ-level (inr rb) = max-ℓ rb
+ρ-level (inj₁ _ ) = lzero
+ρ-level (inj₂ rb) = max-ℓ rb
 
 has-ρ? : Level → Level ⊎ RecB → Level
-has-ρ? ℓ (inl _) = lzero
-has-ρ? ℓ (inr _) = ℓ
+has-ρ? ℓ (inj₁ _) = lzero
+has-ρ? ℓ (inj₂ _) = ℓ
 
 σ-level : Level ⊎ RecB → Level
-σ-level (inl ℓ) = ℓ
-σ-level (inr _) = lzero
+σ-level (inj₁ ℓ) = ℓ
+σ-level (inj₂ _) = lzero
 
 max-π : ConB → Level
 max-π = maxMap ρ-level
@@ -54,8 +62,8 @@ maxMap-bound f ineq (a ∷ as) = cong₂ _⊔_ (ineq a) (maxMap-bound f ineq as)
 
 hasRec?-bound : ∀ ℓ cb → hasRec? ℓ cb ⊑ ℓ
 hasRec?-bound ℓ []            = refl
-hasRec?-bound ℓ (inl ℓ' ∷ cb) = hasRec?-bound ℓ cb
-hasRec?-bound ℓ (inr rb ∷ cb) = hasRec?-bound ℓ cb
+hasRec?-bound ℓ (inj₁ ℓ' ∷ cb) = hasRec?-bound ℓ cb
+hasRec?-bound ℓ (inj₂ rb ∷ cb) = hasRec?-bound ℓ cb
 
 hasCon?-bound : ∀ ℓ cbs → hasCon? ℓ cbs ⊑ ℓ
 hasCon?-bound ℓ = maxMap-bound (λ _ → ℓ) (λ _ → refl)
@@ -73,8 +81,8 @@ module _ (I : Set ℓⁱ) where
 
   data ConD : ConB → Setω where
     ι : (i : I) → ConD []
-    σ : (A : Set ℓ) (D : A → ConD cb) → ConD (inl ℓ  ∷ cb)
-    ρ : (D : RecD rb) (E : ConD cb)   → ConD (inr rb ∷ cb)
+    σ : (A : Set ℓ) (D : A → ConD cb) → ConD (inj₁ ℓ  ∷ cb)
+    ρ : (D : RecD rb) (E : ConD cb)   → ConD (inj₂ rb ∷ cb)
 
   data ConDs : ConBs → Setω where
     []  : ConDs []
@@ -120,8 +128,7 @@ record DataD : Setω where
   constructor datad
   field
     #levels : ℕ
-  Levels : Set
-  Levels = Level ^ #levels
+  Levels = Nary.Levels #levels
   field
     applyL : Levels → PDataD
 
@@ -163,8 +170,8 @@ fmapᶜ (ρ D E) f (x , xs) = fmapʳ D f x , fmapᶜ E f xs
 
 fmapᶜˢ : {I : Set ℓ} (Ds : ConDs I cbs) {X : I → Set ℓˣ} {Y : I → Set ℓʸ}
        → ({i : I} → X i → Y i) → {i : I} → ⟦ Ds ⟧ᶜˢ X i → ⟦ Ds ⟧ᶜˢ Y i
-fmapᶜˢ (D ∷ Ds) f (inl xs) = inl (fmapᶜ  D  f xs)
-fmapᶜˢ (D ∷ Ds) f (inr xs) = inr (fmapᶜˢ Ds f xs)
+fmapᶜˢ (D ∷ Ds) f (inj₁ xs) = inj₁ (fmapᶜ  D  f xs)
+fmapᶜˢ (D ∷ Ds) f (inj₂ xs) = inj₂ (fmapᶜˢ Ds f xs)
 
 fmapᵖᵈ : (D : PDataD) {p : ⟦ PDataD.Param D ⟧ᵗ} → let I = ⟦ PDataD.Index D p ⟧ᵗ in
          {X : I → Set ℓˣ} {Y : I → Set ℓʸ}

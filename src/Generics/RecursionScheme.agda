@@ -1,13 +1,21 @@
 {-# OPTIONS --safe --without-K #-}
 
-open import Prelude
-
 module Generics.RecursionScheme where
 
-open import Generics.Telescope
-open import Generics.Description
 open import Generics.Algebra
+open import Generics.Description
+open import Generics.Level
 open import Generics.Recursion
+open import Generics.Telescope
+
+-- open import Data.List using (_∷_)
+open import Data.Nat using (suc)
+open import Data.Product using (_,_; proj₁; proj₂; curry)
+open import Data.Sum using (inj₁; inj₂)
+open import Data.Vec.Recursive using (_^_)
+open import Function using (_∘_)
+open import Reflection.AST.Name using (Name)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; cong; module ≡-Reasoning)
 
 private variable
   rb  : RecB
@@ -31,19 +39,19 @@ fold-opᶜ (ρ D E) f (xs , xs') = fold-opᶜ  E    (f xs) xs'
 
 fold-opᶜˢ : {I : Set ℓⁱ} (D : ConDs I cbs) {X : Carrierᶜˢ D ℓ}
           → ⟦ FoldOpTelᶜˢ D X ⟧ᵗ → Algᶜˢ D X
-fold-opᶜˢ (D ∷ Ds) (f , fs) (inl xs) = fold-opᶜ  D  f  xs
-fold-opᶜˢ (D ∷ Ds) (f , fs) (inr xs) = fold-opᶜˢ Ds fs xs
+fold-opᶜˢ (D ∷ Ds) (f , fs) (inj₁ xs) = fold-opᶜ  D  f  xs
+fold-opᶜˢ (D ∷ Ds) (f , fs) (inj₂ xs) = fold-opᶜˢ Ds fs xs
 
 fold-operator : ∀ (n : Name) {D N} ⦃ C : Named n (DataC D N) ⦄ → FoldP
 fold-operator _ {D} ⦃ named C ⦄ = record
   { Conv    = C
   ; #levels = suc (DataD.#levels D)
-  ; level   = snd
+  ; level   = proj₂
   ; Param   = λ (ℓ , ℓs) → let Dᵖ = DataD.applyL D ℓs in
       [[ ps ∶ PDataD.Param Dᵖ ]]
       [  X  ∶ Curriedᵗ (PDataD.Index Dᵖ ps) (constTelInfo visible) (λ _ → Set ℓ) ]
               FoldOpTelᶜˢ (PDataD.applyP Dᵖ ps) (uncurryᵗ X)
-  ; param   = fst
+  ; param   = proj₁
   ; ParamV  = constTelInfo hidden ++ λ _ → hidden ∷ λ _ → constTelInfo visible
   ; ParamN  = constTelInfo "p" ++ λ _ → "X" ∷ λ _ → constTelInfo "alg"
   ; Carrier = λ _ (_ , X , _) → uncurryᵗ X
@@ -107,9 +115,9 @@ fold-fusionᶜˢ :
   → (h : ∀ {i} → X i → Y i) → ⟦ Homᶜˢ D fs gs h ⟧ᵗ
   → ∀ {i} (ns : ⟦ D ⟧ᶜˢ N i) → Allᶜˢ D (λ _ n → h (fold-fs n) ≡ fold-gs n) ns ℓ'
   → h (fold-opᶜˢ D fs (fmapᶜˢ D fold-fs ns)) ≡ fold-opᶜˢ D gs (fmapᶜˢ D fold-gs ns)
-fold-fusionᶜˢ (D ∷ Ds) (f , _ ) (g , _ ) fold-fs fold-gs h (hom , _) (inl ns) all =
+fold-fusionᶜˢ (D ∷ Ds) (f , _ ) (g , _ ) fold-fs fold-gs h (hom , _) (inj₁ ns) all =
   fold-fusionᶜ  D  f  g  fold-fs fold-gs h (∀ᶜ-apply D hom) ns all
-fold-fusionᶜˢ (D ∷ Ds) (_ , fs) (_ , gs) fold-fs fold-gs h (_ , hom) (inr ns) all =
+fold-fusionᶜˢ (D ∷ Ds) (_ , fs) (_ , gs) fold-fs fold-gs h (_ , hom) (inj₂ ns) all =
   fold-fusionᶜˢ Ds fs gs fold-fs fold-gs h hom ns all
 
 fold-fusion : ∀ (n : Name) {D N} ⦃ C : Named n (DataC D N) ⦄
@@ -117,7 +125,7 @@ fold-fusion : ∀ (n : Name) {D N} ⦃ C : Named n (DataC D N) ⦄
 fold-fusion _ {D} ⦃ named C ⦄ {fold} ⦃ foldC ⦄ = record
   { Conv    = C
   ; #levels = suc (suc (DataD.#levels D))
-  ; level   = snd ∘ snd
+  ; level   = proj₂ ∘ proj₂
   ; Param   = λ (ℓˣ , ℓʸ , ℓs) → let Dᵖ = DataD.applyL D ℓs in
       [[ ps ∶ PDataD.Param Dᵖ ]]
       let ITel = PDataD.Index Dᵖ ps; Dᶜˢ = PDataD.applyP Dᵖ ps in
@@ -127,7 +135,7 @@ fold-fusion _ {D} ⦃ named C ⦄ {fold} ⦃ foldC ⦄ = record
       [[ fs ∶ FoldOpTelᶜˢ Dᶜˢ (uncurryᵗ X) ]]
       [[ gs ∶ FoldOpTelᶜˢ Dᶜˢ (uncurryᵗ Y) ]]
               Homᶜˢ Dᶜˢ fs gs (λ {is} → uncurryᵗ h is)
-  ; param   = fst
+  ; param   = proj₁
   ; ParamV  = constTelInfo hidden ++ λ _ →
               hidden ∷ λ _ → hidden ∷ λ _ → visible ∷ λ _ →
               constTelInfo hidden ++ λ _ → constTelInfo hidden ++ λ _ → constTelInfo visible
@@ -142,9 +150,9 @@ fold-fusion _ {D} ⦃ named C ⦄ {fold} ⦃ foldC ⦄ = record
           ≡⟨ cong (uncurryᵗ h is) (FoldC.equation foldC ns) ⟩
         uncurryᵗ h is (fold-opᶜˢ Dᶜˢ fs (fmapᶜˢ Dᶜˢ (fold _ (ps , X , fs)) ns))
           ≡⟨ fold-fusionᶜˢ Dᶜˢ fs gs (fold _ (ps , X , fs)) (fold _ (ps , Y , gs))
-               (λ {is} → uncurryᵗ h is) hom ns all ⟩'
+               (λ {is} → uncurryᵗ h is) hom ns all ⟩
         fold-opᶜˢ Dᶜˢ gs (fmapᶜˢ Dᶜˢ (fold _ (ps , Y , gs)) ns)
-          ≡⟨ sym (FoldC.equation foldC ns) ⟩'
+          ≡⟨ sym (FoldC.equation foldC ns) ⟩
         fold _ (ps , Y , gs) (DataC.toN C ns)
       ∎ } where open ≡-Reasoning
 
@@ -163,7 +171,7 @@ IndOpTelᶜˢ : {I : Set ℓⁱ} (D : ConDs I cbs) {N : Carrierᶜˢ D ℓ} → 
            → (P : IndCarrierᶜˢ D N ℓ') → Tel (maxMap max-π cbs ⊔ maxMap max-σ cbs ⊔
                                               maxMap (hasRec? ℓ) cbs ⊔ hasCon? ℓ' cbs)
 IndOpTelᶜˢ []       f P = []
-IndOpTelᶜˢ (D ∷ Ds) f P = [ _ ∶ IndOpTᶜ D (f ∘ inl) P ] IndOpTelᶜˢ Ds (f ∘ inr) P
+IndOpTelᶜˢ (D ∷ Ds) f P = [ _ ∶ IndOpTᶜ D (f ∘ inj₁) P ] IndOpTelᶜˢ Ds (f ∘ inj₂) P
 
 ind-opʳ : {I : Set ℓⁱ} (D : RecD I rb) {N : I → Set ℓ} (ns : ⟦ D ⟧ʳ N)
           {P : ∀ i → N i → Set ℓ'} → Allʳ D P ns → IndOpTʳ D ns P
@@ -179,20 +187,20 @@ ind-opᶜ (ρ D E) f g (ns , ns') (all , all') =
 
 ind-opᶜˢ : {I : Set ℓⁱ} (D : ConDs I cbs) {N : Carrierᶜˢ D ℓ} (f : Algᶜˢ D N)
            {P : IndCarrierᶜˢ D N ℓ'} → ⟦ IndOpTelᶜˢ D f P ⟧ᵗ → IndAlgᶜˢ D f P ℓ''
-ind-opᶜˢ (D ∷ Ds) f (g , gs) (inl ps) = ind-opᶜ  D  (f ∘ inl) g  ps
-ind-opᶜˢ (D ∷ Ds) f (g , gs) (inr ps) = ind-opᶜˢ Ds (f ∘ inr) gs ps
+ind-opᶜˢ (D ∷ Ds) f (g , gs) (inj₁ ps) = ind-opᶜ  D  (f ∘ inj₁) g  ps
+ind-opᶜˢ (D ∷ Ds) f (g , gs) (inj₂ ps) = ind-opᶜˢ Ds (f ∘ inj₂) gs ps
 
 ind-operator : ∀ (n : Name) {D N} ⦃ C : Named n (DataC D N) ⦄ → IndP
 ind-operator _ {D} {N} ⦃ named C ⦄ = record
   { Conv    = C
   ; #levels = suc (DataD.#levels D)
-  ; level   = snd
+  ; level   = proj₂
   ; Param   = λ (ℓ , ℓs) → let Dᵖ = DataD.applyL D ℓs in
       [[ ps ∶ PDataD.Param Dᵖ ]] let Dᶜˢ = PDataD.applyP Dᵖ ps in
       [  P  ∶ Curriedᵗ (PDataD.Index Dᵖ ps) (constTelInfo hidden)
                 (λ is → N ℓs ps is → Set ℓ) ]
               IndOpTelᶜˢ Dᶜˢ (DataC.toN C) (uncurryᵗ P)
-  ; param   = fst
+  ; param   = proj₁
   ; ParamV  = constTelInfo hidden ++ λ _ → visible ∷ λ _ → constTelInfo visible
   ; ParamN  = constTelInfo "p" ++ λ _ → "P" ∷ λ _ → constTelInfo "ind-case"
   ; Carrier = λ _ (_ , P , _) is n → uncurryᵗ P is n

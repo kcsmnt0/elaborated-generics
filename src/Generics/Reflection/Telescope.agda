@@ -1,8 +1,7 @@
 {-# OPTIONS --safe --without-K #-}
 
-open import Prelude
-
 module Generics.Reflection.Telescope where
+
 open import Utils.Reflection
 open import Utils.Error as Err
 

@@ -1,25 +1,27 @@
 {-# OPTIONS --safe --without-K #-}
 
-open import Prelude
-
 module Generics.Telescope where
 
-open import Agda.Builtin.Reflection public using (Visibility; visible; hidden; instance′)
+open import Generics.Level
+
+open import Data.Product using (Σ-syntax; _,_; curry)
+open import Data.Unit using (⊤; tt)
+open import Reflection.AST.Argument.Visibility using (Visibility; visible; hidden; instance′)
 
 infixr 5 _∷_
 infixr 4 _++_
 
-mutual
+data Tel : Level → Setω
+⟦_⟧ᵗ : Tel ℓ → Set ℓ
 
-  data Tel : Level → Setω where
-    []   : Tel lzero
-    _∷_  : (A : Set ℓ) (T : A → Tel ℓ') → Tel (ℓ ⊔ ℓ')
-    _++_ : (T : Tel ℓ) (U : ⟦ T ⟧ᵗ → Tel ℓ') → Tel (ℓ ⊔ ℓ')
+data Tel where
+  []   : Tel lzero
+  _∷_  : (A : Set ℓ) (T : A → Tel ℓ') → Tel (ℓ ⊔ ℓ')
+  _++_ : (T : Tel ℓ) (U : ⟦ T ⟧ᵗ → Tel ℓ') → Tel (ℓ ⊔ ℓ')
 
-  ⟦_⟧ᵗ : Tel ℓ → Set ℓ
-  ⟦ []     ⟧ᵗ = ⊤
-  ⟦ A ∷  T ⟧ᵗ = Σ[ a ∈ A ] ⟦ T a ⟧ᵗ
-  ⟦ T ++ U ⟧ᵗ = Σ[ t ∈ ⟦ T ⟧ᵗ ] ⟦ U t ⟧ᵗ
+⟦ []     ⟧ᵗ = ⊤
+⟦ A ∷  T ⟧ᵗ = Σ[ a ∈ A ] ⟦ T a ⟧ᵗ
+⟦ T ++ U ⟧ᵗ = Σ[ t ∈ ⟦ T ⟧ᵗ ] ⟦ U t ⟧ᵗ
 
 ∷-syntaxᵗ : (A : Set ℓ) (T : A → Tel ℓ') → Tel (ℓ ⊔ ℓ')
 ∷-syntaxᵗ = _∷_
@@ -66,7 +68,3 @@ uncurryᵗ {T = A ∷  T} {visible   ∷ vs} f (a , t) = uncurryᵗ (f   a  ) t
 uncurryᵗ {T = A ∷  T} {hidden    ∷ vs} f (a , t) = uncurryᵗ (f { a }) t
 uncurryᵗ {T = A ∷  T} {instance′ ∷ vs} f (a , t) = uncurryᵗ (f ⦃ a ⦄) t
 uncurryᵗ {T = T ++ U} {vs ++ vs'}      f (t , u) = uncurryᵗ (uncurryᵗ f t) u
-
-_^_ : Set → ℕ → Set
-A ^ zero  = ⊤
-A ^ suc n = A × (A ^ n)

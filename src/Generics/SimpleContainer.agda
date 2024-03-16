@@ -2,10 +2,16 @@
 
 module Generics.SimpleContainer where
 
-open import Prelude
-open import Prelude.Sum as Sum
-open import Generics.Telescope
 open import Generics.Description
+open import Generics.Level
+open import Generics.Telescope
+
+open import Data.Bool using (Bool)
+open import Data.List.Relation.Unary.All using (All)
+open import Data.Sum as Sum using (inj₁; inj₂)
+open import Data.Unit using (⊤)
+open import Function using (const)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; cong)
 
 private variable
   cb  : ConB
@@ -16,30 +22,30 @@ SCᵇ = All Sum.[ const Bool , const ⊤ ]
 
 scConB : Level → (cb : ConB) → SCᵇ cb → ConB
 scConB ℓ []            _           = []
-scConB ℓ (inl ℓ' ∷ cb) (false ∷ s) = inl ℓ' ∷ scConB ℓ cb s
-scConB ℓ (inl ℓ' ∷ cb) (true  ∷ s) = inl ℓ' ∷ inl ℓ ∷ scConB ℓ cb s
-scConB ℓ (inr rb ∷ cb) (_     ∷ s) = inr rb ∷ scConB ℓ cb s
+scConB ℓ (inj₁ ℓ' ∷ cb) (false ∷ s) = inj₁ ℓ' ∷ scConB ℓ cb s
+scConB ℓ (inj₁ ℓ' ∷ cb) (true  ∷ s) = inj₁ ℓ' ∷ inj₁ ℓ ∷ scConB ℓ cb s
+scConB ℓ (inj₂ rb ∷ cb) (_     ∷ s) = inj₂ rb ∷ scConB ℓ cb s
 
 hasEl? : Level → (cb : ConB) → SCᵇ cb → Level
 hasEl? ℓ []           _           = lzero
-hasEl? ℓ (inl _ ∷ cb) (false ∷ s) = hasEl? ℓ cb s
-hasEl? ℓ (inl _ ∷ cb) (true  ∷ s) = ℓ ⊔ hasEl? ℓ cb s
-hasEl? ℓ (inr _ ∷ cb) (_     ∷ s) = hasEl? ℓ cb s
+hasEl? ℓ (inj₁ _ ∷ cb) (false ∷ s) = hasEl? ℓ cb s
+hasEl? ℓ (inj₁ _ ∷ cb) (true  ∷ s) = ℓ ⊔ hasEl? ℓ cb s
+hasEl? ℓ (inj₂ _ ∷ cb) (_     ∷ s) = hasEl? ℓ cb s
 
 hasEl?-bound : (ℓ : Level) (cb : ConB) (sb : SCᵇ cb) {ℓ' : Level}
              → ℓ ⊑ ℓ' → hasEl? ℓ cb sb ⊑ ℓ'
 hasEl?-bound ℓ []           []           ℓ⊑ℓ' = refl
-hasEl?-bound ℓ (inl _ ∷ cb) (false ∷ sb) ℓ⊑ℓ' = hasEl?-bound ℓ cb sb ℓ⊑ℓ'
-hasEl?-bound ℓ (inl _ ∷ cb) (true  ∷ sb) ℓ⊑ℓ' = trans (cong (ℓ ⊔_)
+hasEl?-bound ℓ (inj₁ _ ∷ cb) (false ∷ sb) ℓ⊑ℓ' = hasEl?-bound ℓ cb sb ℓ⊑ℓ'
+hasEl?-bound ℓ (inj₁ _ ∷ cb) (true  ∷ sb) ℓ⊑ℓ' = trans (cong (ℓ ⊔_)
                                                (hasEl?-bound ℓ cb sb ℓ⊑ℓ')) ℓ⊑ℓ'
-hasEl?-bound ℓ (inr _ ∷ cb) (_     ∷ sb) ℓ⊑ℓ' = hasEl?-bound ℓ cb sb ℓ⊑ℓ'
+hasEl?-bound ℓ (inj₂ _ ∷ cb) (_     ∷ sb) ℓ⊑ℓ' = hasEl?-bound ℓ cb sb ℓ⊑ℓ'
 
 hasEl?-dist-⊔ : (ℓ ℓ' : Level) (cb : ConB) (sb : SCᵇ cb)
               → hasEl? (ℓ ⊔ ℓ') cb sb ≡ hasEl? ℓ cb sb ⊔ hasEl? ℓ' cb sb
 hasEl?-dist-⊔ ℓ ℓ' []           []           = refl
-hasEl?-dist-⊔ ℓ ℓ' (inl _ ∷ cb) (false ∷ sb) = hasEl?-dist-⊔ ℓ ℓ' cb sb
-hasEl?-dist-⊔ ℓ ℓ' (inl _ ∷ cb) (true  ∷ sb) = cong (ℓ ⊔ ℓ' ⊔_) (hasEl?-dist-⊔ ℓ ℓ' cb sb)
-hasEl?-dist-⊔ ℓ ℓ' (inr _ ∷ cb) (_     ∷ sb) = hasEl?-dist-⊔ ℓ ℓ' cb sb
+hasEl?-dist-⊔ ℓ ℓ' (inj₁ _ ∷ cb) (false ∷ sb) = hasEl?-dist-⊔ ℓ ℓ' cb sb
+hasEl?-dist-⊔ ℓ ℓ' (inj₁ _ ∷ cb) (true  ∷ sb) = cong (ℓ ⊔ ℓ' ⊔_) (hasEl?-dist-⊔ ℓ ℓ' cb sb)
+hasEl?-dist-⊔ ℓ ℓ' (inj₂ _ ∷ cb) (_     ∷ sb) = hasEl?-dist-⊔ ℓ ℓ' cb sb
 
 SCᶜ : {I : Set ℓⁱ} (D : ConD I cb) → SCᵇ cb → Set ℓ → Setω
 SCᶜ (ι i  ) _           X = Liftω ⊤

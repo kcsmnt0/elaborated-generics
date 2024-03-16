@@ -1,13 +1,19 @@
 {-# OPTIONS --safe --without-K #-}
 
-open import Prelude
-
 module Generics.Recursion where
 
-open import Agda.Builtin.Reflection public using (Name)
-open import Generics.Telescope
-open import Generics.Description
 open import Generics.Algebra
+open import Generics.Description
+open import Generics.Level
+open import Generics.Telescope
+
+open import Data.Nat using (ℕ)
+open import Data.String using (String)
+import Function.Nary.NonDependent as Nary
+open import Function using (_∘_)
+open import Reflection.AST.Name using (Name)
+open import Reflection.AST.Argument.Visibility public using (Visibility; visible; hidden; instance′)
+open import Relation.Binary.PropositionalEquality using (_≡_; subst)
 
 private variable
   rb  : RecB
@@ -47,8 +53,7 @@ record FoldP : Setω where
     {Native} : DataT Desc
     Conv     : DataC Desc Native
     #levels  : ℕ
-  Levels : Set
-  Levels = Level ^ #levels
+  Levels = Nary.Levels #levels
   field
     level    : Levels → DataD.Levels Desc
     {plevel} : Levels → Level
@@ -99,8 +104,7 @@ record IndP : Setω where
     {Native} : DataT Desc
     Conv     : DataC Desc Native
     #levels  : ℕ
-  Levels : Set
-  Levels = Level ^ #levels
+  Levels = Nary.Levels #levels
   field
     level    : Levels → DataD.Levels Desc
     {plevel} : Levels → Level
