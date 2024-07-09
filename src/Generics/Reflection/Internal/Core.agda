@@ -1,8 +1,17 @@
 {-# OPTIONS --safe --without-K #-}
 
-module Utils.Reflection.Core where
+module Generics.Reflection.Internal.Core where
 
-open import Agda.Builtin.Reflection as Builtin
+import Agda.Builtin.Reflection as Builtin
+open import Data.Bool using (Bool; true; false)
+open import Data.List using (List; []; _∷_)
+open import Data.Product using (_,_)
+open import Data.Sum using (inj₁; inj₂)
+open import Data.Unit using (⊤; tt)
+open import Level using (Level)
+open import Function using (_$_; λ-; case_of_; case_returning_of_)
+open import Relation.Binary.PropositionalEquality using (refl)
+
 open Builtin public
   hiding ( primQNameEquality
          ; primQNameLess
@@ -12,7 +21,15 @@ open Builtin public
          ; primShowMeta )
 
 private variable
-  A B : Set _
+  ℓ : Level
+  a b : Level
+  A B : Set ℓ
+
+_$ᵢ_ : {B : A → Set b} →
+      (⦃ x : A ⦄ → B x) → ((x : A) → B x)
+f $ᵢ x = f ⦃ x ⦄
+{-# INLINE _$_ #-}
+
 
 Names      = List Name
 Terms      = List Term
@@ -89,16 +106,16 @@ pattern `vλ_`→_ s b = vLam (abs s b)
 pattern `hλ_`→_ s b = hLam (abs s b)
 pattern `iλ_`→_ s b = iLam (abs s b)
 
-pattern `lzero    = def₀ (quote lzero)
+pattern `lzero    = def₀ (quote Level.zero)
 pattern `Level    = def₀ (quote Level)
 pattern `tt       = con₀ (quote tt)
-pattern _`,_ t u  = con₂ (quote Prelude._,_) t u
-pattern `inl x    = con₁ (quote _⊎_.inl) x
-pattern `inr x    = con₁ (quote _⊎_.inr) x
-pattern `refl     = con₀ (quote _≡_.refl)
-pattern _`$_ x y  = def₂ (quote Prelude._$_)  x y
-pattern _`$ᵢ_ x y = def₂ (quote Prelude._$ᵢ_) x y
-pattern _`$ₕ_ x y = def₂ (quote Prelude._$ₕ_) x y
+pattern _`,_ t u  = con₂ (quote _,_) t u
+pattern `inj₁ x    = con₁ (quote inj₁) x
+pattern `inj₂ x    = con₁ (quote inj₂) x
+pattern `refl     = con₀ (quote refl)
+pattern _`$_ x y  = def₂ (quote _$_)  x y
+pattern _`$ᵢ_ x y = def₂ (quote _$ᵢ_) x y
+pattern _`$ₕ_ x y = def₂ (quote λ-) x y
 
 unArg : Arg A → A
 unArg (arg _ x) = x
@@ -130,24 +147,18 @@ isVisible : Arg A → Bool
 isVisible (arg (arg-info visible _) _) = true
 isVisible _ = false
 
-instance
-  FunctorArg : Functor Arg
-  fmap {{FunctorArg}} f (arg i x) = arg i (f x)
+mapArg : (A → B) → Arg A → Arg B
+mapArg f (arg i x) = arg i (f x)
 
 mapArgs : (A → B) → Args A → Args B
 mapArgs f []       = []
-mapArgs f (x ∷ xs) = fmap f x ∷ mapArgs f xs
-
-instance
-  ArgsFunctor : Functor λ A → List (Arg A)
-  fmap ⦃ ArgsFunctor ⦄ = mapArgs
+mapArgs f (x ∷ xs) = mapArg f x ∷ mapArgs f xs
 
 unAbs : Abs A → A
 unAbs (abs _ x) = x
 
-instance
-  FunctorAbs : Functor Abs
-  fmap {{FunctorAbs}} f (abs s x) = abs s (f x)
+mapAbs : (A → B) → Abs A → Abs B
+mapAbs f (abs s x) = abs s (f x)
 
 absurd-lam : Term
 absurd-lam = pat-lam (absurd-clause (("()" , vArg unknown) ∷ []) (vArg (absurd 0) ∷ []) ∷ []) []
@@ -157,20 +168,19 @@ absurd-lam = pat-lam (absurd-clause (("()" , vArg unknown) ∷ []) (vArg (absurd
 mapTC : (A → B) → TC A → TC B
 mapTC f m = bindTC m λ x → returnTC (f x)
 
-instance
-  FunctorTC : Functor TC
-  fmap ⦃ FunctorTC ⦄ = mapTC
-
-  ApplicativeTC : Applicative TC
-  pure  ⦃ ApplicativeTC ⦄ = returnTC
-  _<*>_ ⦃ ApplicativeTC ⦄ = monadAp bindTC
-
-  MonadTC : Monad TC
-  _>>=_  ⦃ MonadTC ⦄ = bindTC
-
-  FunctorZeroTC : FunctorZero TC
-  empty ⦃ FunctorZeroTC ⦄ = typeError []
-
-  AlternativeTC : Alternative TC
-  _<|>_ ⦃ AlternativeTC ⦄ = catchTC
-
+-- instance
+--   FunctorTC : Functor TC
+--   fmap ⦃ FunctorTC ⦄ = mapTC
+-- 
+--   ApplicativeTC : Applicative TC
+--   pure  ⦃ ApplicativeTC ⦄ = returnTC
+--   _<*>_ ⦃ ApplicativeTC ⦄ = monadAp bindTC
+-- 
+--   MonadTC : Monad TC
+--   _>>=_  ⦃ MonadTC ⦄ = bindTC
+-- 
+--   FunctorZeroTC : FunctorZero TC
+--   empty ⦃ FunctorZeroTC ⦄ = typeError []
+-- 
+--   AlternativeTC : Alternative TC
+--   _<|>_ ⦃ AlternativeTC ⦄ = catchTC

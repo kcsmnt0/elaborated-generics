@@ -344,7 +344,7 @@ foldAccT _ (A , R , P , p , _) {x , _} = foldAcc' A R P p x
 -- inverse-wrapper : IndT inverseP
 -- inverse-wrapper = genIndT inverseP inverse -- _ (A , _) = inverse
 
--- open import Utils.Reflection
+-- open import Generics.Reflection.Internal
 
 -- -- inverseC : IndC inverseP inverse-wrapper
 -- inverseC = genIndC' inverseP inverse-wrapper

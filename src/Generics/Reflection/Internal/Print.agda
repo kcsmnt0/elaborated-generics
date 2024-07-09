@@ -1,13 +1,13 @@
 {-# OPTIONS --safe --without-K #-}
 open import Prelude
 
-module Utils.Reflection.Print where
+module Generics.Reflection.Internal.Print where
 
-open import Utils.Reflection.Core
-open import Utils.Reflection.Term
-open import Utils.Reflection.Eq
-open import Utils.Reflection.Tactic
-open import Utils.Reflection.Show
+open import Generics.Reflection.Internal.Core
+open import Generics.Reflection.Internal.Term
+open import Generics.Reflection.Internal.Eq
+open import Generics.Reflection.Internal.Tactic
+open import Generics.Reflection.Internal.Show
 
 infoName = "print"
 verbosity = 5

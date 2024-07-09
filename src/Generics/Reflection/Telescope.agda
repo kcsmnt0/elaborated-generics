@@ -2,14 +2,18 @@
 
 module Generics.Reflection.Telescope where
 
-open import Utils.Reflection
-open import Utils.Error as Err
+-- open import Generics.Reflection.Internal
+-- open import Utils.Error as Err
 
+open import Generics.Reflection.Internal
 open import Generics.Telescope
+
+open import Level using (Level)
 
 -- Frequently used terms
 private
   variable
+    ℓ : Level
     T U : Tel ℓ
   
   pattern _`∷_ t u = con₂ (quote Tel._∷_) t (vLam u)

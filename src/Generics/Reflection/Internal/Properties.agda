@@ -1,7 +1,7 @@
 {-# OPTIONS --without-K --safe #-}
 open import Prelude
 
-module Utils.Reflection.Properties where
+module Generics.Reflection.Internal.Properties where
 open import Agda.Builtin.Reflection as Builtin
 
 private variable

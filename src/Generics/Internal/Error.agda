@@ -1,11 +1,12 @@
 {-# OPTIONS --without-K --safe #-}
 
-open import Prelude
+module Generics.Internal.Error where
 
-module Utils.Error where
+open import Generics.Reflection.Internal.Core
 
-open import Utils.Reflection.Core
-open import Utils.Reflection.Show
+open import Data.List using (List; []; _∷_; [_])
+open import Function using (_$_)
+open import Reflection.AST.Show using (showTerm)
 
 private variable
   A : Set _
@@ -21,7 +22,7 @@ notEndIn s n = typeError (strErr "Type of"
 #idxNotMatch = typeError [ strErr "number of indices doesn't match." ]
 
 notλ : Term → TC A
-notλ t = typeError $ strErr (show t) ∷ strErr " cannot be reduced further to a λ-abstraction" ∷ []
+notλ t = typeError $ strErr (showTerm t) ∷ strErr " cannot be reduced further to a λ-abstraction" ∷ []
 
 notDef : Term → TC A
 notDef t = typeError $ termErr t ∷ strErr " is not a definition." ∷ []

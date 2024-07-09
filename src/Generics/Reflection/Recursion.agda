@@ -3,7 +3,7 @@ open import Prelude
 
 module Generics.Reflection.Recursion where
 
-open import Utils.Reflection
+open import Generics.Reflection.Internal
 open import Utils.Error as Err
 
 open import Generics.Telescope

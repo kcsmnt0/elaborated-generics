@@ -1,15 +1,29 @@
 {-# OPTIONS --safe --without-K #-}
-open import Prelude
-  hiding ([_,_])
 
-module Utils.Reflection.Tactic where
+module Generics.Reflection.Internal.Tactic where
 
-open import Utils.Reflection.Core
-open import Utils.Reflection.Show
-open import Utils.Reflection.Term
-import Utils.Error as Err
+open import Generics.Reflection.Internal.Core
+open import Generics.Reflection.Internal.Term
+
+import Generics.Internal.Error as Err
+
+open import Data.Bool using (Bool; true; false)
+open import Data.Nat using (ℕ; zero; suc)
+open import Data.List using (List; []; _∷_; [_]; drop)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
+open import Data.String using (String; _++_)
+open import Data.Unit using (⊤)
+open import Function using (_∘_; _$_)
+open import Level using (Level; Setω)
+open import Reflection.AST.Show
+open import Reflection.TCM
+open import Reflection.TCM.Syntax
+
+import Data.List.Effectful as List
+import Reflection.TCM.Effectful as TCM
 
 private variable
+  ℓ ℓ′ : Level
   A : Set ℓ
 
 dprint = debugPrint "meta" 5
@@ -24,7 +38,7 @@ define! : Arg Type → Clauses → TC Name
 define! (arg i a) cs = do
   f ← freshName "_"
   define (arg i f) a cs
-  return f
+  pure f
 
 extend*Context : Telescope → TC A → TC A
 extend*Context []              m = m
@@ -33,26 +47,23 @@ extend*Context ((s , a) ∷ tel) m = extendContext s a (extend*Context tel m)
 _onClause_ : (Term → TC Term) → Clause → TC Clause
 f onClause (tel ⊢ ps `= t) = do
   u ← extend*Context tel (f t)
-  return $ tel ⊢ ps `= u
-f onClause cl = return cl
+  pure $ tel ⊢ ps `= u
+f onClause cl = pure cl
 
 _onClauses_ : (Term → TC Term) → Clauses → TC Clauses
-_onClauses_ f = mapM (f onClause_)
+_onClauses_ f = List.TraversableA.mapA TCM.applicative (f onClause_)
 
 checkClauses : Clauses → Type → TC Clauses
 checkClauses cls `A = do
   pat-lam₀ cls ← checkType (pat-lam₀ cls) `A
     where _ → Err.IMPOSSIBLE
-  return cls
+  pure cls
   
 quoteTC! : A → TC Term
 quoteTC! a = withNormalisation true (quoteTC a)
 
 quoteωTC! : {A : Setω} → A → TC Term
 quoteωTC! a = withNormalisation true (quoteωTC a)
-
-newMeta : Type → TC Term
-newMeta = checkType unknown
 
 newMeta! : TC Term
 newMeta! = newMeta unknown
@@ -77,7 +88,7 @@ defineUnify (arg i ns) ty tm hole = do
 
   unify hole (def₀ n)
 
-  return n
+  pure n
   
 evalTC : TC A → Tactic
 evalTC {A = A} c hole = do
@@ -101,51 +112,52 @@ exCxtT s i B f = do
     f `B x
 
 getConTelescope : Name → (pars : ℕ) → TC Telescope
-getConTelescope c pars = drop pars ∘ fst ∘ (coerce'_to (Telescope × Type)) <$> getType c
+-- getConTelescope c pars = drop pars ∘ proj₁ ∘ (coerce'_to (Telescope × Type)) <$> getType c
+getConTelescope c pars = drop pars ∘ proj₁ ∘ typeToTelescope <$> getType c
 
 getAbsName : {A : Set ℓ} {B : A → Set ℓ′} → ((x : A) → B x) → TC String
-getAbsName f = caseM quoteTC! f of λ { (lam visible (abs s _)) → return s ; t → Err.notλ t }
+getAbsName f = quoteTC! f >>= λ { (lam visible (abs s _)) → pure s ; t → Err.notλ t }
 
 getAbsNameω : {A : Set ℓ} {B : A → Setω} → ((x : A) → B x) → TC String
-getAbsNameω f = caseM quoteωTC! f of λ { (lam visible (abs s _)) → return s ; t → Err.notλ t }
+getAbsNameω f = quoteωTC! f >>= λ { (lam visible (abs s _)) → pure s ; t → Err.notλ t }
 
 getFunction : Name → TC (Type × Clauses)
 getFunction d = do
   function cs ← getDefinition d
     where t → Err.notFun d
   t ← getType d
-  return $ t , cs
+  pure $ t , cs
 
 getDataDefinition : Name → TC (ℕ × Names)
 getDataDefinition d = do
   data-type pars cs ← getDefinition d
     where _ → Err.notData (def₀ d)
-  return $ pars , cs
+  pure $ pars , cs
 
 getTelescope : Name → TC (Telescope × Type)
-getTelescope s = ⦇ ⇑ (getType s) ⦈
+getTelescope s = ⦇ typeToTelescope (getType s) ⦈
 
 macro
   getTelescopeT : Name → Tactic
   getTelescopeT s = evalTC $ getTelescope s
 
 getSetLevel : Type → TC Term
-getSetLevel (agda-sort (set t)) = return t
+getSetLevel (agda-sort (set t)) = pure t
 getSetLevel (`Set n) = quoteTC (fromℕ n)
   where 
     fromℕ : ℕ → Level
-    fromℕ zero = lzero
-    fromℕ (suc n) = lsuc (fromℕ n)
-getSetLevel (def (quote Set) []) = return (quoteTerm lzero)
-getSetLevel (def (quote Set) [ arg _ x ]) = return x
+    fromℕ zero = Level.zero
+    fromℕ (suc n) = Level.suc (fromℕ n)
+getSetLevel (def (quote Set) []) = pure (quoteTerm Level.zero)
+getSetLevel (def (quote Set) (arg _ x ∷ [])) = pure x
 getSetLevel t = quoteTC t >>= λ t →
-                  typeError [ strErr $ showTerm t <> " level error!" ]
+                  typeError [ strErr $ showTerm t ++ " level error!" ]
 
 
 -- Rename names in a telescope to the first letter of the given type,
 -- if no name is given
 renameUnderscore : Telescope → TC Telescope
-renameUnderscore []        = return []
+renameUnderscore []        = pure []
 renameUnderscore (("_" , x@(arg visible-relevant-ω `A)) ∷ as) = do
   s ← formatErrorPart $ termErr `A
   -- let s = ⇑ [ maybe′ toLower 'x' $ head (⇑ s ⦂ List Char) ]

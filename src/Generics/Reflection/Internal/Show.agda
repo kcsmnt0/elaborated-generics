@@ -1,15 +1,12 @@
 {-# OPTIONS --safe --without-K #-}
 
-open import Prelude
-  hiding (intersperse)
-
-module Utils.Reflection.Show where
+module Generics.Reflection.Internal.Show where
 
 open import Agda.Builtin.Reflection
   using (primShowQName; primShowMeta)
 
-open import Utils.String
-open import Utils.Reflection.Core
+-- open import Utils.String
+open import Generics.Reflection.Internal.Core
 
 instance
   ShowName : Show Name

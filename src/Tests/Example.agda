@@ -3,7 +3,7 @@ open import Prelude
 
 module Tests.Example where
 
-open import Utils.Reflection
+open import Generics.Reflection.Internal
 
 open import Generics.Telescope
 open import Generics.Description

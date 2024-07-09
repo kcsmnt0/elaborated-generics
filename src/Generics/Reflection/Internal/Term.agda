@@ -1,10 +1,22 @@
 {-# OPTIONS --safe --without-K #-}
-open import Prelude renaming (Any to AnyL)
 
-module Utils.Reflection.Term where
+module Generics.Reflection.Internal.Term where
 
-open import Utils.Reflection.Core
-open import Utils.Reflection.Eq
+open import Generics.Reflection.Internal.Core
+open import Generics.Reflection.Internal.String
+
+open import Data.Bool using (Bool; true; false; _∧_; _∨_; if_then_else_)
+open import Data.Nat using (ℕ; zero; suc; _+_; _∸_; _<ᵇ_; _≤ᵇ_)
+open import Data.List as List using (List; []; _∷_; length; reverse; any; replicate)
+open import Data.Maybe using (fromMaybe)
+open import Data.Product as Product using (_×_; _,_; proj₁; proj₂)
+open import Data.String as String using (String; toList; fromList)
+open import Function using (id; _∘_; _$_; flip; case_of_)
+open import Relation.Nullary.Decidable using (isYes)
+
+import Data.Nat as Nat
+import Data.Nat.Show as Nat
+import Reflection.AST.Name as Name
 
 ------------------------------------------------------------------------
 -- Context representation
@@ -23,7 +35,7 @@ private
   e ∷cxt (n , Γ) = (suc n , e ∷ Γ)
 
   _++cxt_ : List (String × Arg Term) → Cxt → Cxt
-  es ++cxt (n , Γ) = (length es + n , es <> Γ)
+  es ++cxt (n , Γ) = (length es + n , es List.++ Γ)
 
 -- A very limited travasal on terms
 Action : Set → Set
@@ -136,19 +148,19 @@ anyPat f p = if (f p) then true
 weaken : ℕ → ℕ → Term → Term
 weaken from by = traverseTerm (record defaultActions
                                       {onVar = λ Γ x →
-                                         if x <? (Cxt.len Γ + from)
+                                         if x <ᵇ (Cxt.len Γ + from)
                                            then x
                                            else x + by}) (0 , [])
 
 weakenTel : ℕ → ℕ → Telescope → Telescope
 weakenTel from by [] = []
-weakenTel from by (x ∷ tel) = bimap id (fmap (weaken from by)) x ∷
+weakenTel from by (x ∷ tel) = Product.map id (mapArg (weaken from by)) x ∷
                               weakenTel (suc from) by tel
 
 strengthen : ℕ → ℕ → Term → Term
 strengthen from by = traverseTerm (record defaultActions
                                       {onVar = λ Γ x →
-                                         if x <? (Cxt.len Γ + from)
+                                         if x <ᵇ (Cxt.len Γ + from)
                                            then x
                                            else x ∸ by}) (0 , [])
 
@@ -162,13 +174,13 @@ prependToTerm ((s , `A) ∷ `T) `t =
   lam (getVisibility `A) (abs s (prependToTerm `T `t))
                               
 `Levels : ℕ → Telescope
-`Levels n = duplicate n ("ℓ" , hArg `Level)
+`Levels n = replicate n ("ℓ" , hArg `Level)
 
 vUnknowns : ℕ → Args Term
-vUnknowns = flip duplicate (vArg unknown)
+vUnknowns = flip replicate (vArg unknown)
 
 hUnknowns : ℕ → Args Term
-hUnknowns = flip duplicate (hArg unknown)
+hUnknowns = flip replicate (hArg unknown)
 
 private
   -- Assumption: The argument is a valid type.
@@ -179,15 +191,15 @@ private
   TelescopeToΠ : Type → Telescope → Type
   TelescopeToΠ `B []             = `B
   TelescopeToΠ `B ((s , `A) ∷ T) = `Π[ s ∶ `A ] TelescopeToΠ `B T
-instance
-  TelescopeToContext : Coercion' Telescope Context
-  ⇑_ ⦃ TelescopeToContext ⦄ = map snd
 
-  TypeToTelescope : Coercion' Type (Telescope × Type)
-  ⇑_ ⦃ TypeToTelescope ⦄ = ΠToTelescope
+telescopeToContext : Telescope → Context
+telescopeToContext = List.map proj₂
 
-  TelescopeToType : Coercion' (Telescope × Type) Type
-  ⇑_ ⦃ TelescopeToType ⦄ (T , `A) = TelescopeToΠ `A T
+typeToTelescope : Type → Telescope × Type
+typeToTelescope = ΠToTelescope
+
+telescopeToType : Telescope → Type → Type
+telescopeToType T `A = TelescopeToΠ `A T
 
 splitType : ℕ → Type → Telescope × Type
 splitType zero    x               = [] , x
@@ -196,13 +208,13 @@ splitType (suc n) (`Π[ s ∶ a ] b) =
 splitType _       a               = [] , a
 
 dropType : ℕ → Type → Type
-dropType n = snd ∘ splitType n 
+dropType n = proj₂ ∘ splitType n 
 
 forgetTypes : Telescope → Telescope
-forgetTypes = map $ bimap id (λ `A → arg (getArgInfo `A) unknown)
+forgetTypes = List.map $ Product.map id (λ `A → arg (getArgInfo `A) unknown)
 
 endsIn : Type → Name → Bool
-endsIn (def f _)       u = f == u
+endsIn (def f _)       u = isYes (f Name.≟ u)
 endsIn (`Π[ _ ∶ _ ] b) u = endsIn b u
 endsIn _               u = false
 
@@ -213,10 +225,10 @@ unConflictType t = unconflict [] t
   where
     mostElem : String → ℕ → List (String × ℕ)
               → ℕ × (List (String × ℕ))
-    mostElem x n [] = n ,  [ (x , n) ]
+    mostElem x n [] = n ,  List.[ (x , n) ]
     mostElem x m ((s , n) ∷ ss) =
-      if x == s then
-        if m ≤? n then
+      if x String.== s then
+        if m ≤ᵇ n then
           (suc n) , (s , suc n) ∷ ss
         else
           (m , (s , m) ∷ ss)
@@ -226,11 +238,11 @@ unConflictType t = unconflict [] t
 
     unconflict : List (String × ℕ) → Type → Type
     unconflict ss (`Π[ s ∶ a ] x) =
-      let cs       = ⇑ s
-          cs'      = removeLast (lenTrailingNat cs) cs
-          n , ss' = mostElem (⇑ cs') (fromMaybe 0 (trailingNat cs)) ss
-          ns = if n == 0 then "" else show n
-        in `Π[ ⇑ cs' <> ns ∶ a ] unconflict ss' x
+      let cs       = toList s
+          cs'      = removeTrailingNat cs
+          n , ss' = mostElem (fromList cs') (fromMaybe 0 (trailingNat cs)) ss
+          ns = if n Nat.≡ᵇ 0 then "" else Nat.show n
+        in `Π[ fromList cs' String.++ ns ∶ a ] unconflict ss' x
     unconflict _ t = t
 
 renameTypeBy : Type → List String → Type
